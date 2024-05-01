@@ -15,9 +15,11 @@ pub enum AppError {
     #[error(transparent)]
     Lapin(#[from] lapin::Error),
     #[error(transparent)]
-    SerdeCbor(#[from] serde_cbor::Error),
+    FromUtf8(#[from] std::string::FromUtf8Error),
     #[error("job not found")]
     JobNotFound,
+    #[error("job creation error")]
+    JobCreation,
 }
 
 impl IntoResponse for AppError {
@@ -39,11 +41,8 @@ impl IntoResponse for AppError {
                 tracing::error!(%err, "error from lapin lib");
                 (StatusCode::INTERNAL_SERVER_ERROR, "Something went wrong")
             }
-            AppError::SerdeCbor(err) => {
-                tracing::error!(%err, "error from cbor lib");
-                (StatusCode::INTERNAL_SERVER_ERROR, "Something went wrong")
-            }
             AppError::JobNotFound => (StatusCode::NOT_FOUND, "No job matching filter found"),
+            AppError::JobCreation => (StatusCode::INTERNAL_SERVER_ERROR, "Failed to create job"),
             _ => (StatusCode::INTERNAL_SERVER_ERROR, "Something went wrong"),
         };
         (status, message).into_response()

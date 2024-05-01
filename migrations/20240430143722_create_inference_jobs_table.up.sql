@@ -5,8 +5,8 @@ CREATE TABLE IF NOT EXISTS inference_jobs
 (
 	job_id     TEXT,
 	status     job_status               NOT NULL DEFAULT 'bot',
-	payload    bytea                    NOT NULL,
-	response   bytea,
+	payload    json                     NOT NULL,
+	response   json,
 	created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	PRIMARY KEY ( job_id )
 );

@@ -12,7 +12,21 @@ pub struct AppState {
     pub http_client: Arc<Client>,
     pub db: PgPool,
     pub rmq: Arc<Connection>,
+    // pub request_templates: HashMap<String, RequestTemplate>,
 }
+// #[derive(Clone, Debug, Serialize, Deserialize)]
+// pub struct RequestTemplate {
+//     pub url: String,
+//     pub headers: HashMap<String, String>,
+// }
+//
+// pub async fn setup_request_templates() -> AppResult<HashMap<String, RequestTemplate>> {
+//     let content = tokio::fs::read_to_string("request_templates.json")
+//         .await
+//         .expect("Failed to read request_templates.json");
+//     let templates = serde_json::from_str(&content).expect("Failed to parse request_templates.json");
+//     Ok(templates)
+// }
 
 pub async fn setup_db() -> AppResult<PgPool> {
     let db_addr = std::env::var("DATABASE_URL")?;
@@ -45,7 +59,7 @@ pub enum JobStatus {
 pub struct InferenceJobModel {
     pub job_id: String,
     pub status: JobStatus,
-    pub payload: Vec<u8>,
-    pub response: Option<Vec<u8>>,
+    pub payload: sqlx::types::JsonValue,
+    pub response: Option<sqlx::types::JsonValue>,
     pub created_at: DateTime<Utc>,
 }
