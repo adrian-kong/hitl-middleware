@@ -1,24 +1,18 @@
+use crate::data::Job;
 use crate::error::AppError;
+use crate::routes::AppState;
 use axum::body::Body;
-use axum::extract::FromRequest;
+use axum::extract::State;
 use axum::http::Request;
-use axum::response::{IntoResponse, Response};
-use axum::routing::{head, post};
-use axum::{Extension, Router};
+use axum::response::IntoResponse;
+use axum::routing::post;
+use axum::{Extension, Json, Router};
 use http_body_util::BodyExt;
-use hyper::body::Incoming;
-use hyper::upgrade::Upgraded;
-use hyper::StatusCode;
 use reqwest::Client;
-use serde::Serialize;
-use std::convert::Infallible;
+use serde_json::json;
 use std::sync::Arc;
-use tokio::net::TcpStream;
-use tower_http::body::Full;
 
-const URL: &str = "https://example.com";
-
-pub fn routes() -> Router {
+pub fn routes() -> Router<AppState> {
     let client = Arc::new(Client::new());
     Router::new()
         .route("/enqueue", post(enqueue))
@@ -26,15 +20,21 @@ pub fn routes() -> Router {
 }
 
 async fn enqueue(
+    State(state): State<AppState>,
     Extension(client): Extension<Arc<Client>>,
     req: Request<Body>,
 ) -> Result<impl IntoResponse, AppError> {
-    let mut headers = req.headers().clone();
-    headers.remove("host");
-    let body_bytes = req.into_body().collect().await?.to_bytes();
-    let request = client.post(URL).headers(headers).body(body_bytes).build()?;
-    let response = client.execute(request).await?;
-    let content = response.text().await?;
-    tracing::info!(?content);
-    Ok(content)
+    let body = req.into_body().collect().await?.to_bytes().to_vec();
+    let job = Job::new(body.clone());
+    sqlx::query!(
+        "INSERT INTO inference_jobs(job_id, payload) VALUES($1, $2)",
+        job.id,
+        body
+    )
+    .execute(&state.db)
+    .await?;
+    Ok(Json(json!({
+        "status": "success",
+        "job_id" : job.id
+    })))
 }

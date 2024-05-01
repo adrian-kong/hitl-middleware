@@ -5,6 +5,7 @@ use serde::Serialize;
 pub enum AppError {
     Reqwest(reqwest::Error),
     Axum(axum::Error),
+    Sqlx(sqlx::Error),
 }
 
 impl IntoResponse for AppError {
@@ -22,6 +23,10 @@ impl IntoResponse for AppError {
                 tracing::error!(%err, "error from axum lib");
                 (StatusCode::INTERNAL_SERVER_ERROR, "Something went wrong")
             }
+            AppError::Sqlx(err) => {
+                tracing::error!(%err, "error from sqlx lib");
+                (StatusCode::INTERNAL_SERVER_ERROR, "Something went wrong")
+            }
         };
         (status, message).into_response()
     }
@@ -36,5 +41,11 @@ impl From<reqwest::Error> for AppError {
 impl From<axum::Error> for AppError {
     fn from(value: axum::Error) -> Self {
         Self::Axum(value)
+    }
+}
+
+impl From<sqlx::Error> for AppError {
+    fn from(value: sqlx::Error) -> Self {
+        Self::Sqlx(value)
     }
 }
