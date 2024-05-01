@@ -6,21 +6,18 @@ use thiserror::Error;
 pub enum AppError {
     #[error(transparent)]
     EnvVar(#[from] std::env::VarError),
-
     #[error(transparent)]
     Reqwest(#[from] reqwest::Error),
-
     #[error(transparent)]
     Axum(#[from] axum::Error),
-
     #[error(transparent)]
     Sqlx(#[from] sqlx::Error),
-
     #[error(transparent)]
     Lapin(#[from] lapin::Error),
-
     #[error(transparent)]
     SerdeCbor(#[from] serde_cbor::Error),
+    #[error("job not found")]
+    JobNotFound,
 }
 
 impl IntoResponse for AppError {
@@ -46,6 +43,7 @@ impl IntoResponse for AppError {
                 tracing::error!(%err, "error from cbor lib");
                 (StatusCode::INTERNAL_SERVER_ERROR, "Something went wrong")
             }
+            AppError::JobNotFound => (StatusCode::NOT_FOUND, "No job matching filter found"),
             _ => (StatusCode::INTERNAL_SERVER_ERROR, "Something went wrong"),
         };
         (status, message).into_response()

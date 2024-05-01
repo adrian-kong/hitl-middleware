@@ -30,9 +30,14 @@ pub async fn setup_rmq() -> AppResult<Connection> {
 #[derive(Clone, Debug, PartialEq, PartialOrd, sqlx::Type, Deserialize, Serialize)]
 #[sqlx(type_name = "job_status", rename_all = "lowercase")]
 pub enum JobStatus {
-    Pending,
+    /// Waiting for inference
+    Bot,
+    /// Waiting for human feedback
+    Human,
+    /// Job succeeded
     Success,
-    Error,
+    /// Job failed
+    Fail,
 }
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]

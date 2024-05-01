@@ -14,6 +14,7 @@ use axum::{Json, Router};
 use http_body_util::BodyExt;
 use rand::distributions::Alphanumeric;
 use rand::Rng;
+use serde::Deserialize;
 use serde_json::json;
 use std::sync::Arc;
 use tokio::net::TcpListener;
@@ -39,7 +40,9 @@ pub fn setup_router(state: AppState) -> Router {
     Router::new()
         .route("/liveness", get(|| async { "ok" }))
         .route("/enqueue", post(enqueue_job))
-        .route("/job", get(get_job_status))
+        .route("/job", get(get_job))
+        .route("/jobs", get(get_jobs))
+        .route("/reviewJob", post(review_job))
         .layer(TraceLayer::new_for_http())
         .with_state(state)
 }
@@ -64,16 +67,73 @@ async fn enqueue_job(
     Ok(Json(json!({"status": "success","job_id" : job_id})))
 }
 
-async fn get_job_status(
+#[derive(Debug, Deserialize)]
+struct QueryJob {
+    id: String,
+}
+
+async fn get_job(
     State(state): State<AppState>,
-    Query(id): Query<String>,
+    Query(query): Query<QueryJob>,
 ) -> Result<impl IntoResponse, AppError> {
     let model = sqlx::query_as!(
         InferenceJobModel,
-        r#"SELECT job_id, status AS "status: JobStatus", payload, response, created_at FROM inference_jobs WHERE job_id = $1"#,
-        id
+        r#"SELECT job_id, status AS "status: _", payload, response, created_at
+        FROM inference_jobs WHERE job_id = $1"#,
+        query.id
     )
     .fetch_one(&state.db)
+    .await?;
+    Ok(Json(model))
+}
+
+#[derive(Debug, Deserialize)]
+struct UpdateJob {
+    id: String,
+    status: JobStatus,
+}
+
+/// For humans to review job in pending human state.
+async fn review_job(
+    State(state): State<AppState>,
+    Json(payload): Json<UpdateJob>,
+) -> Result<impl IntoResponse, AppError> {
+    let affected = sqlx::query!(
+        r#"UPDATE inference_jobs SET status = $1 WHERE job_id = $2 AND status = 'human'"#,
+        payload.status as _,
+        payload.id
+    )
+    .execute(&state.db)
+    .await?;
+    if affected.rows_affected() > 0 {
+        Ok(Json(json!({ "status": "success"})))
+    } else {
+        Err(AppError::JobNotFound)
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QueryJobs {
+    offset: i64,
+    limit: i64,
+    status: JobStatus,
+}
+
+/// Get all jobs awaiting human input
+async fn get_jobs(
+    State(state): State<AppState>,
+    Query(query): Query<QueryJobs>,
+) -> Result<impl IntoResponse, AppError> {
+    let model = sqlx::query_as!(
+        InferenceJobModel,
+        r#"SELECT job_id, status AS "status: _", payload, response, created_at
+        FROM inference_jobs WHERE status = $1 ORDER BY created_at ASC LIMIT $2 OFFSET $3"#,
+        query.status as _,
+        query.limit,
+        query.offset
+    )
+    .fetch_all(&state.db)
     .await?;
     Ok(Json(model))
 }
