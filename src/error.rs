@@ -1,19 +1,30 @@
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use serde::Serialize;
+use thiserror::Error;
 
+#[derive(Error, Debug)]
 pub enum AppError {
-    Reqwest(reqwest::Error),
-    Axum(axum::Error),
-    Sqlx(sqlx::Error),
+    #[error(transparent)]
+    EnvVar(#[from] std::env::VarError),
+
+    #[error(transparent)]
+    Reqwest(#[from] reqwest::Error),
+
+    #[error(transparent)]
+    Axum(#[from] axum::Error),
+
+    #[error(transparent)]
+    Sqlx(#[from] sqlx::Error),
+
+    #[error(transparent)]
+    Lapin(#[from] lapin::Error),
+
+    #[error(transparent)]
+    SerdeCbor(#[from] serde_cbor::Error),
 }
 
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-        #[derive(Serialize)]
-        struct ErrorResponse {
-            message: String,
-        }
         let (status, message) = match self {
             AppError::Reqwest(err) => {
                 tracing::error!(%err, "error from reqwest lib");
@@ -27,25 +38,16 @@ impl IntoResponse for AppError {
                 tracing::error!(%err, "error from sqlx lib");
                 (StatusCode::INTERNAL_SERVER_ERROR, "Something went wrong")
             }
+            AppError::Lapin(err) => {
+                tracing::error!(%err, "error from lapin lib");
+                (StatusCode::INTERNAL_SERVER_ERROR, "Something went wrong")
+            }
+            AppError::SerdeCbor(err) => {
+                tracing::error!(%err, "error from cbor lib");
+                (StatusCode::INTERNAL_SERVER_ERROR, "Something went wrong")
+            }
+            _ => (StatusCode::INTERNAL_SERVER_ERROR, "Something went wrong"),
         };
         (status, message).into_response()
-    }
-}
-
-impl From<reqwest::Error> for AppError {
-    fn from(value: reqwest::Error) -> Self {
-        Self::Reqwest(value)
-    }
-}
-
-impl From<axum::Error> for AppError {
-    fn from(value: axum::Error) -> Self {
-        Self::Axum(value)
-    }
-}
-
-impl From<sqlx::Error> for AppError {
-    fn from(value: sqlx::Error) -> Self {
-        Self::Sqlx(value)
     }
 }
