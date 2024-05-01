@@ -1,7 +1,6 @@
 # HITL AI Inference Middleware
 
-This Rust project utilizes the Axum framework to build a web microservice middleware that facilitates AI inference
-tasks. Essentially human-in-the-loop (HITL) system where AI inferences are queued for human review before the results
+Essentially human-in-the-loop (HITL) system where AI inferences are queued for human review before the results
 are sent back to the user.
 
 This system uses RabbitMQ for message queuing for spinning up multiple Axum instances and PostgreSQL to persist
@@ -9,16 +8,17 @@ data.
 
 ## Overview
 
-This middleware acts as an intermediary, receiving AI inference requests from users, queuing them in RabbitMQ, and
-processing them through an external AI model. After inference, a human reviewer approves or modifies the AI's decision,
-ensuring accuracy and reliability before the results are delivered back to the user.
+This middleware acts as an intermediary, receiving requests from users, queuing them as jobs in RabbitMQ, and
+processing them through an external AI model via API.
+
+After inference, a human reviewer approves or modifies the AI's decision, ensuring accuracy and reliability before the
+results are delivered back to the user.
 
 ### Job types
 
-There are 4 different job types 'bot', 'human', 'success', 'fail'.
+There are 4 different job types `bot`, `human`, `success`, `fail`.
 
-![architecture](./docs/architecture.svg)
-
+![architecture](./docs/architecture.png)
 
 ## Features
 

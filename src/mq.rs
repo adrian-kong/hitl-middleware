@@ -63,7 +63,7 @@ async fn on_job_received(client: &Client, db: &PgPool, job: InferenceJobModel) -
     tracing::info!("processing job {}", job.job_id);
     let request = client
         .post("https://api.deepinfra.com/v1/openai/chat/completions")
-        .header("Authorization", "Bearer nc8yF9AbzgLjZayljeo5nRtMgoGHxK08")
+        .header("Authorization", "Bearer ")
         .header("Content-Type", "application/json")
         .body(job.payload.to_string())
         .build()?;
